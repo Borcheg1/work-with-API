@@ -12,15 +12,17 @@ class Vk:
             'v': '5.131'
         }
 
-    def get_photos_url(self, user_id, album, count) -> list:
+    def get_photos_url(self, user_id, album) -> list:
+        photo_count = int(input(f'У пользователя {album[1]} фотографий. '
+                                f'Сколько фотографий скачать? Введите число от 1 до 1000:\n'))
         url = 'https://api.vk.com/method/photos.get'
         params = {
             'owner_id': user_id,
-            'album_id': album,
+            'album_id': album[0],
             'rev': 0,
             'extended': 1,
             'photo_size': 1,
-            'count': count
+            'count': photo_count
         }
         response = requests.get(url, params={**self.params, **params}).json()
         self._check_error(response)
@@ -41,15 +43,15 @@ class Vk:
     def get_album_info(self, user_id):
         url = 'https://api.vk.com/method/photos.getAlbums'
         params = {
-            'owner_id': user_id
+            'owner_id': user_id,
+            'need_system': 1
         }
         response = requests.get(url, params={**self.params, **params}).json()
         self._check_error(response)
         albums = {
-            str(number + 1) + ': ' + item['title']: str(item['id']) for number, item in
-            enumerate(response['response']['items'])
+            str(number + 1) + ': ' + item['title']: [str(item['id']), item['size']] for
+            number, item in enumerate(response['response']['items'])
         }
-        albums['0: Профиль'] = 'profile'
         return albums
 
     @staticmethod
@@ -106,6 +108,17 @@ class Ya:
         return folder_name
 
 
+def exception_block(error):
+    if 'list index out of range' in str(error):
+        print(f'Album not found.\n')
+    elif 'not integer' in str(error) or 'screen_name is undefined' in str(error):
+        print(f'User not found.\n')
+    elif 'invalid literal for int' in str(error) or 'count should be less' in str(error):
+        print(f'Amount of photos or album number is incorrect.\n')
+    else:
+        print(f'{error}.\n')
+
+
 def main():
     ya_token = input(f'Введите OAuth-token Яндекс.Диска:\n')
     vk_token = ''
@@ -125,25 +138,12 @@ def main():
             album = sorted(album_info.keys(), key=lambda x: int(x.split(':')[0]))
             album_number = int(input(f'Введите номер альбома, '
                                      f'из которого хотите скачать фотографии:\n{album}\n'))
-            photo_count = int(input('Сколько фотографий скачать? Введите число от 1 до 1000:\n'))
-            list_with_info = test_vk.get_photos_url(user_id, album_info[album[album_number]], photo_count)
+            list_with_info = test_vk.get_photos_url(user_id, album_info[album[album_number - 1]])
 
         except Exception as error:
-            if 'list index out of range' in str(error):
-                print(f'album not found.\n'
-                      f'Попробуйте снова. Для выхода из программы введите "0"')
-                user_id = input('Введите ID или nickname пользователя vk:\n')
-            elif 'not integer' in str(error) or 'screen_name is undefined' in str(error):
-                print(f'user not found.\n'
-                      f'Попробуйте снова. Для выхода из программы введите "0"')
-                user_id = input('Введите ID или nickname пользователя vk:\n')
-            elif 'invalid literal for int' in str(error) or 'count should be less' in str(error):
-                print(f'number of photos is incorrect.\n'
-                      f'Попробуйте снова. Для выхода из программы введите "0"')
-                user_id = input('Введите ID или nickname пользователя vk:\n')
-            else:
-                print(f'{error}.\nПопробуйте снова. Для выхода из программы введите "0"')
-                user_id = input('Введите ID или nickname пользователя vk:\n')
+            exception_block(error)
+            print('Попробуйте снова. Для выхода из программы введите "0"')
+            user_id = input('Введите ID или nickname пользователя vk:\n')
         else:
             if len(list_with_info) == 0:
                 print(f'У пользователя нет фотографий.\n'
