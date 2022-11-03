@@ -12,7 +12,7 @@ class Vk:
             'v': '5.131'
         }
 
-    def get_photos_url(self, user_id, album, count=5) -> list:
+    def get_photos_url(self, user_id, album, count) -> list:
         url = 'https://api.vk.com/method/photos.get'
         params = {
             'owner_id': user_id,
@@ -27,6 +27,16 @@ class Vk:
         self._add_info_in_json(response)
         list_with_info = self._get_info_from_json(response)
         return list_with_info
+
+    def get_id_by_screen_name(self, screen_name: str) -> id:
+        url = 'https://api.vk.com/method/utils.resolveScreenName'
+        params = {
+            'screen_name': screen_name
+        }
+        response = requests.get(url, params={**self.params, **params}).json()
+        self._check_error(response)
+        if len(response['response']) != 0:
+            return str(response['response']['object_id'])
 
     def get_album_info(self, user_id):
         url = 'https://api.vk.com/method/photos.getAlbums'
@@ -102,27 +112,43 @@ def main():
     test_ya = Ya(ya_token)
     test_vk = Vk(vk_token)
     user_id = input('Для выхода из программы введите "0"\n'
-                    'Введите ID пользователя vk:\n')
+                    'Введите ID или nickname пользователя vk:\n')
 
     while user_id != '0':
         try:
+            screen_name = test_vk.get_id_by_screen_name(user_id)
+
+            if screen_name is not None:
+                user_id = screen_name
+
             album_info = test_vk.get_album_info(user_id)
             album = sorted(album_info.keys(), key=lambda x: int(x.split(':')[0]))
             album_number = int(input(f'Введите номер альбома, '
                                      f'из которого хотите скачать фотографии:\n{album}\n'))
-            list_with_info = test_vk.get_photos_url(user_id, album_info[album[album_number]])
+            photo_count = int(input('Сколько фотографий скачать? Введите число от 1 до 1000:\n'))
+            list_with_info = test_vk.get_photos_url(user_id, album_info[album[album_number]], photo_count)
+
         except Exception as error:
             if 'list index out of range' in str(error):
-                print(f'album not found.\nПопробуйте снова. Для выхода из программы введите "0"')
-                user_id = input('Введите ID пользователя vk:\n')
+                print(f'album not found.\n'
+                      f'Попробуйте снова. Для выхода из программы введите "0"')
+                user_id = input('Введите ID или nickname пользователя vk:\n')
+            elif 'not integer' in str(error) or 'screen_name is undefined' in str(error):
+                print(f'user not found.\n'
+                      f'Попробуйте снова. Для выхода из программы введите "0"')
+                user_id = input('Введите ID или nickname пользователя vk:\n')
+            elif 'invalid literal for int' in str(error) or 'count should be less' in str(error):
+                print(f'number of photos is incorrect.\n'
+                      f'Попробуйте снова. Для выхода из программы введите "0"')
+                user_id = input('Введите ID или nickname пользователя vk:\n')
             else:
                 print(f'{error}.\nПопробуйте снова. Для выхода из программы введите "0"')
-                user_id = input('Введите ID пользователя vk:\n')
+                user_id = input('Введите ID или nickname пользователя vk:\n')
         else:
             if len(list_with_info) == 0:
                 print(f'У пользователя нет фотографий.\n'
                       f'Попробуйте снова. Для выхода из программы введите "0"')
-                user_id = input('Введите ID пользователя vk:\n')
+                user_id = input('Введите ID или nickname пользователя vk:\n')
             else:
                 print('Фотографии получены, начинаю загрузку на Яндекс.Диск')
                 break
