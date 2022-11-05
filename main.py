@@ -22,12 +22,26 @@ class Vk:
             'rev': 0,
             'extended': 1,
             'photo_size': 1,
-            'count': photo_count
+            'count': photo_count,
+            'offset': 0
         }
-        response = requests.get(url, params={**self.params, **params}).json()
-        self._check_error(response)
-        self._add_info_in_json(response)
-        list_with_info = self._get_info_from_json(response)
+
+        self.create_new_json_file()
+
+        if photo_count > album[1]:
+            offset = album[1] // 1000
+        else:
+            offset = photo_count // 1000
+
+        list_with_info = []
+
+        while params['offset'] <= offset:
+            response = requests.get(url, params={**self.params, **params}).json()
+            self._check_error(response)
+            self._add_info_in_file(response)
+            list_with_info.extend(self._get_info_from_response(response))
+            params['offset'] += 1
+            time.sleep(0.5)
         return list_with_info
 
     def get_id_by_screen_name(self, screen_name: str) -> id:
@@ -60,18 +74,23 @@ class Vk:
             raise Exception(f"{response['error']['error_msg']}")
 
     @staticmethod
-    def _add_info_in_json(response):
+    def create_new_json_file():
+        with open('info.json', 'w', encoding='UTF-8') as file:
+            pass
+
+    @staticmethod
+    def _add_info_in_file(response):
         list_with_info = [{
             "file_name": f"{str(item['date'])}_{str(item['likes']['count'])}.jpg",
             "size": item['sizes'][-1]['type']}
             for item in response['response']['items']
         ]
 
-        with open('info.json', 'w', encoding='UTF-8') as file:
+        with open('info.json', 'a', encoding='UTF-8') as file:
             json.dump(list_with_info, file)
 
     @staticmethod
-    def _get_info_from_json(response):
+    def _get_info_from_response(response):
         info_from_json = [{
             "file_name": f"{str(item['date'])}_{str(item['likes']['count'])}.jpg",
             "url": item['sizes'][-1]['url']}
@@ -146,7 +165,7 @@ def main():
             user_id = input('Введите ID или nickname пользователя vk:\n')
         else:
             if len(list_with_info) == 0:
-                print(f'У пользователя нет фотографий.\n'
+                print(f'Photos not found.\n'
                       f'Попробуйте снова. Для выхода из программы введите "0"')
                 user_id = input('Введите ID или nickname пользователя vk:\n')
             else:
@@ -155,7 +174,7 @@ def main():
     else:
         return
 
-    folder_name = test_ya.create_folder(user_id, album[album_number])
+    folder_name = test_ya.create_folder(user_id, album[album_number - 1])
     time.sleep(0.3)
 
     for index in tqdm.trange(len(list_with_info)):
