@@ -14,7 +14,7 @@ class Vk:
 
     def get_photos_url(self, user_id, album) -> list:
         photo_count = int(input(f'У пользователя {album[1]} фотографий. '
-                                f'Сколько фотографий скачать? Введите число от 1 до 1000:\n'))
+                                f'Сколько фотографий скачать? Введите число:\n'))
         url = 'https://api.vk.com/method/photos.get'
         params = {
             'owner_id': user_id,
@@ -28,19 +28,21 @@ class Vk:
 
         self.create_new_json_file()
 
-        if photo_count > album[1]:
-            offset = album[1] // 1000
-        else:
-            offset = photo_count // 1000
+        if photo_count > 1000 and album[1] > 1000:
+            if photo_count > album[1]:
+                offset = album[1]
+            else:
+                offset = photo_count
+            params['count'] = 1000
 
         list_with_info = []
 
-        while params['offset'] <= offset:
+        while params['offset'] < offset:
             response = requests.get(url, params={**self.params, **params}).json()
             self._check_error(response)
             self._add_info_in_file(response)
             list_with_info.extend(self._get_info_from_response(response))
-            params['offset'] += 1
+            params['offset'] += 1000
             time.sleep(0.5)
         return list_with_info
 
@@ -132,7 +134,7 @@ def exception_block(error):
         print(f'Album not found.\n')
     elif 'not integer' in str(error) or 'screen_name is undefined' in str(error):
         print(f'User not found.\n')
-    elif 'invalid literal for int' in str(error) or 'count should be less' in str(error):
+    elif 'invalid literal for int' in str(error):
         print(f'Amount of photos or album number is incorrect.\n')
     else:
         print(f'{error}.\n')
