@@ -43,6 +43,8 @@ class Vk:
             self._add_info_in_file(response)
             list_with_info.extend(self._get_info_from_response(response))
             params['offset'] += 1000
+            if offset - params['offset'] < 1000:
+                params['count'] = offset - params['offset']
             time.sleep(0.5)
         return list_with_info
 
@@ -88,8 +90,16 @@ class Vk:
             for item in response['response']['items']
         ]
 
-        with open('info.json', 'a', encoding='UTF-8') as file:
-            json.dump(list_with_info, file)
+        with open('info.json', 'r+', encoding='UTF-8') as file:
+            try:
+                file_data = json.load(file)
+            except:
+                json.dump(list_with_info, file, indent="")
+            else:
+                file_data.extend(list_with_info)
+                file.seek(0)
+                file.truncate()
+                json.dump(file_data, file, indent="")
 
     @staticmethod
     def _get_info_from_response(response):
