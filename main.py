@@ -1,15 +1,18 @@
-import requests
-import json
+import configparser
 import tqdm
 import time
-from datetime import datetime
 from Vk_class import Vk
 from Ya_class import Ya
 
 
 def main():
-    ya_token = input(f'Введите OAuth-token Яндекс.Диска:\n')
-    vk_token = ''
+    ini_path = input('Введите путь до ini файла, где записаны токены\n'
+                     '(в формате: C:\\Users\\Desktop\\tokens.ini):\n')
+    tokens = configparser.ConfigParser()
+    tokens.read(ini_path)
+
+    ya_token = tokens['Ya']['token']
+    vk_token = tokens['Vk']['token']
     vk_test = Vk(vk_token)
     ya_test = Ya(ya_token)
 
@@ -27,6 +30,8 @@ def main():
             album = sorted(album_info.keys(), key=lambda x: int(x.split(':')[0]))
             album_number = int(input(f'Введите номер альбома, '
                                      f'из которого хотите скачать фотографии:\n{album}\n'))
+            if album_number < 1:
+                raise Exception('Album not found')
             list_with_url = vk_test.get_photos_url(user_id, album_info[album[album_number - 1]])
 
         except Exception as error:
