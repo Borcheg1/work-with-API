@@ -2,6 +2,7 @@ import requests
 import json
 import tqdm
 import time
+from datetime import datetime
 
 
 class Vk:
@@ -28,25 +29,26 @@ class Vk:
 
         self.create_new_json_file()
 
+        if photo_count > album[1]:
+            offset = album[1]
+        else:
+            offset = photo_count
         if photo_count > 1000 and album[1] > 1000:
-            if photo_count > album[1]:
-                offset = album[1]
-            else:
-                offset = photo_count
             params['count'] = 1000
 
         list_with_info = []
+        list_with_url = []
 
         while params['offset'] < offset:
             response = requests.get(url, params={**self.params, **params}).json()
             self._check_error(response)
-            self._add_info_in_file(response)
-            list_with_info.extend(self._get_info_from_response(response))
+            self._get_info_from_response(response, list_with_info, list_with_url)
             params['offset'] += 1000
             if offset - params['offset'] < 1000:
                 params['count'] = offset - params['offset']
             time.sleep(0.5)
-        return list_with_info
+        self._add_info_in_file(list_with_info)
+        return list_with_url
 
     def get_id_by_screen_name(self, screen_name: str) -> id:
         url = 'https://api.vk.com/method/utils.resolveScreenName'
@@ -83,32 +85,46 @@ class Vk:
             pass
 
     @staticmethod
-    def _add_info_in_file(response):
-        list_with_info = [{
-            "file_name": f"{str(item['date'])}_{str(item['likes']['count'])}.jpg",
-            "size": item['sizes'][-1]['type']}
-            for item in response['response']['items']
-        ]
-
-        with open('info.json', 'r+', encoding='UTF-8') as file:
-            try:
-                file_data = json.load(file)
-            except:
-                json.dump(list_with_info, file, indent="")
+    def _get_info_from_response(response, list_with_info, list_with_url):
+        for item in response['response']['items']:
+            if len(list_with_info) == 0:
+                list_with_info.append({
+                    "file_name": f"{str(item['likes']['count'])}.jpg",
+                    "size": item['sizes'][-1]['type']
+                })
+                list_with_url.append({
+                    "file_name": f"{str(item['likes']['count'])}.jpg",
+                    "url": item['sizes'][-1]['url']
+                })
             else:
-                file_data.extend(list_with_info)
-                file.seek(0)
-                file.truncate()
-                json.dump(file_data, file, indent="")
+                flag = False
+                for dict in list_with_info:
+                    if f"{str(item['likes']['count'])}.jpg" in dict["file_name"]:
+                        flag = True
+                if flag is False:
+                    list_with_info.append({
+                        "file_name": f"{str(item['likes']['count'])}.jpg",
+                        "size": item['sizes'][-1]['type']
+                    })
+                    list_with_url.append({
+                        "file_name": f"{str(item['likes']['count'])}.jpg",
+                        "url": item['sizes'][-1]['url']
+                    })
+                else:
+                    time = datetime.utcfromtimestamp(item['date']).strftime('%Y-%m-%d %H:%M:%S')
+                    list_with_info.append({
+                        "file_name": f"{str(time)}_{str(item['likes']['count'])}.jpg",
+                        "size": item['sizes'][-1]['type']
+                    })
+                    list_with_url.append({
+                        "file_name": f"{str(time)}_{str(item['likes']['count'])}.jpg",
+                        "url": item['sizes'][-1]['url']
+                    })
 
     @staticmethod
-    def _get_info_from_response(response):
-        info_from_json = [{
-            "file_name": f"{str(item['date'])}_{str(item['likes']['count'])}.jpg",
-            "url": item['sizes'][-1]['url']}
-            for item in response['response']['items']
-        ]
-        return info_from_json
+    def _add_info_in_file(list_with_info):
+        with open('info.json', 'r+', encoding='UTF-8') as file:
+                json.dump(list_with_info, file, indent="")
 
 
 class Ya:
@@ -169,14 +185,14 @@ def main():
             album = sorted(album_info.keys(), key=lambda x: int(x.split(':')[0]))
             album_number = int(input(f'Введите номер альбома, '
                                      f'из которого хотите скачать фотографии:\n{album}\n'))
-            list_with_info = test_vk.get_photos_url(user_id, album_info[album[album_number - 1]])
+            list_with_url = test_vk.get_photos_url(user_id, album_info[album[album_number - 1]])
 
         except Exception as error:
             exception_block(error)
             print('Попробуйте снова. Для выхода из программы введите "0"')
             user_id = input('Введите ID или nickname пользователя vk:\n')
         else:
-            if len(list_with_info) == 0:
+            if len(list_with_url) == 0:
                 print(f'Photos not found.\n'
                       f'Попробуйте снова. Для выхода из программы введите "0"')
                 user_id = input('Введите ID или nickname пользователя vk:\n')
@@ -189,8 +205,8 @@ def main():
     folder_name = test_ya.create_folder(user_id, album[album_number - 1])
     time.sleep(0.3)
 
-    for index in tqdm.trange(len(list_with_info)):
-        item = list_with_info[index]
+    for index in tqdm.trange(len(list_with_url)):
+        item = list_with_url[index]
         file_name, url = list(item.values())
         response = test_ya.upload_file(url, file_name, folder_name)
         if 200 < response.status_code > 202:
