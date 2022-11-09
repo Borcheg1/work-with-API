@@ -1,3 +1,7 @@
 # Pycharm file
 .idea
 __pycache__
+
+# Personal files
+client_secrets.json
+info.json
