@@ -1,4 +1,3 @@
-import json
 import io
 
 import requests
@@ -32,7 +31,7 @@ class Google:
             'parents': [folder_id]
         }
         files = {
-            'data': ('metadata', json.dumps(metadata), 'application/json'),
+            'data': ('metadata', str(metadata), 'application/json'),
             'file': io.BytesIO(requests.get(url).content)
         }
         response = requests.post(post_url, headers=headers, files=files)
